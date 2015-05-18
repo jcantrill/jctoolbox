@@ -27,6 +27,7 @@ HOST_DATA_VOLUME=/tmp/openshift
 
 RUNNING_ID=$(CONTAINER_ID=`docker ps -a | grep $CONTAINER_NAME`;echo ${CONTAINER_ID%%openshift*})
 if [[ ! -z $RUNNING_ID ]]; then
+  echo "Found an instance already running.  Removing it."
   docker rm -f $RUNNING_ID
 fi
 
