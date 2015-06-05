@@ -80,7 +80,7 @@ $DOCKER_EXEC osadm policy add-cluster-role-to-user $ADMIN_ROLE $ADMIN_USER --con
 
 #deploy registry
 echo "Deploying the OpenShift Docker registry..."
-$DOCKER_EXEC openshift ex registry --create  --credentials=$CONFIG_DIR/master/openshift-registry.kubeconfig --config=$ADMIN_CREDENTIALS
+$DOCKER_EXEC osadm registry --credentials=$CONFIG_DIR/master/openshift-registry.kubeconfig --config=$ADMIN_CREDENTIALS
 
 #initialize server content
 echo "Adding image streams..."
@@ -89,6 +89,7 @@ echo "Adding templates..."
 osc_create /tmp/data/examples/sample-app/application-template-stibuild.json
 
 if [ -d $JBOSS_TEMPLATE_DIR ]; then
+  set +e
   #jboss image streams
   if [ -f "$JBOSS_TEMPLATE_DIR/jboss-image-streams.json" ]; then
     echo "Adding JBoss imagestreams..."
@@ -106,7 +107,7 @@ if [ -d $JBOSS_TEMPLATE_DIR ]; then
   if [ -d "$JBOSS_TEMPLATE_DIR/webserver" ]; then
     osc_create_files_in "$JBOSS_TEMPLATE_DIR/webserver" "/tmp/jboss"
   fi
-
+  set -e
 fi
 
 #create projects
