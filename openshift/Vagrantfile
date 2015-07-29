@@ -1,0 +1,307 @@
+# coding: utf-8
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+
+VAGRANTFILE_API_VERSION = "2"
+
+DEFAULT_NAMESPACE="openshift"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.0.3/openshift-origin-v1.0.3-1695461-linux-amd64.tar.gz"
+JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
+
+Vagrant.require_version ">= 1.7.2"
+
+MASTER_API_IP="172.28.128.4"
+MASTER_API_PORT=8443
+MASTER_API="#{MASTER_API_IP}:#{MASTER_API_PORT}"
+
+MASTER_CONFIG="/var/lib/openshift/openshift.local.config/master/master-config.yaml"
+
+
+# Top level domain
+$tld = "openshift.dev"
+
+$oadm = "oadm --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --server=https://#{MASTER_API}"
+$oc = "oc --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --server=https://#{MASTER_API}"
+
+
+$provisionScript = <<SCRIPT
+if [ -d '/var/lib/openshift' ]; then
+  exit 0
+fi
+
+yum makecache fast && yum update docker -y
+
+mkdir /tmp/openshift
+echo "Downloading OpenShift binaries..."
+curl --retry 999 --retry-max-time 0  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
+mv /tmp/openshift/* /usr/bin/
+
+mkdir -p /var/lib/openshift/openshift.local.manifests
+
+pushd /var/lib/openshift
+echo "Writing out OpenShift config"
+/usr/bin/openshift start --master=#{MASTER_API_IP} --cors-allowed-origins=.* --hostname=#{MASTER_API_IP} --write-config=/var/lib/openshift/openshift.local.config
+
+echo "Creating openshift.service"
+cat <<EOF > /usr/lib/systemd/system/openshift.service
+[Unit]
+Description=OpenShift
+Requires=docker.service network.service
+After=network.service
+[Service]
+ExecStart=/usr/bin/openshift start --master-config=#{MASTER_CONFIG} --node-config=/var/lib/openshift/openshift.local.config/node-172.28.128.4/node-config.yaml
+WorkingDirectory=/var/lib/openshift/
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Updating the router subdomain to vagrant.#{$tld}"
+ruby -e "require 'yaml';c = YAML::load(File.read('#{MASTER_CONFIG}')); c['routingConfig']['subdomain']='vagrant.#{$tld}';File.open('#{MASTER_CONFIG}', 'w'){|f|f.write(c.to_yaml)}"
+
+systemctl daemon-reload
+systemctl enable openshift.service
+systemctl start openshift.service
+
+echo "Waiting for the server to become available..."
+while true; do
+  curl -k -s -f -o /dev/null --connect-timeout 1 https://#{MASTER_API}/healthz/ready && break || sleep 1
+done
+echo "Master is ready..."
+
+echo "Adding admin user..."
+echo "#{$oadm} policy add-cluster-role-to-user cluster-admin admin"
+#{$oadm} policy add-cluster-role-to-user cluster-admin admin
+
+echo "Deleting restricted scc..."
+#{$oc} delete scc restricted
+
+echo "Re-creating restricted scc..."
+cat <<EOF | #{$oc} create -f -
+---
+  apiVersion: v1
+  groups:
+  - system:authenticated
+  kind: SecurityContextConstraints
+  metadata:
+    name: restricted
+  runAsUser:
+    type: RunAsAny
+  seLinuxContext:
+    type: MustRunAs
+EOF
+
+echo "Deleting privileged scc..."
+#{$oc} delete scc privileged
+echo "Re-creating privileged scc..."
+cat <<EOF | #{$oc} create -f -
+---
+  allowHostDirVolumePlugin: true
+  allowPrivilegedContainer: true
+  apiVersion: v1
+  groups:
+  - system:cluster-admins
+  - system:nodes
+  kind: SecurityContextConstraints
+  metadata:
+    name: privileged
+  runAsUser:
+    type: RunAsAny
+  seLinuxContext:
+    type: RunAsAny
+  users:
+  - system:serviceaccount:openshift-infra:build-controller
+  - system:serviceaccount:default:default
+  - system:serviceaccount:default:myserviceaccount
+EOF
+
+echo "Creating OpenShift Secret..."
+cat <<EOF | #{$oc} create -f -
+---
+  apiVersion: "v1"
+  kind: "Secret"
+  metadata:
+    name: "openshift-cert-secrets"
+  data:
+    root-cert: "$(base64 -w 0 /var/lib/openshift/openshift.local.config/master/ca.crt)"
+    admin-cert: "$(base64 -w 0 /var/lib/openshift/openshift.local.config/master/admin.crt)"
+    admin-key: "$(base64 -w 0 /var/lib/openshift/openshift.local.config/master/admin.key)"
+EOF
+
+echo "Creating 'myserviceaccount'"
+cat <<EOF | #{$oc} create -f -
+---
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: myserviceaccount
+  secrets:
+    -
+      name: openshift-cert-secrets
+EOF
+
+echo "Adding 'myserviceaccount' as cluster-admin"
+#{$oadm} policy add-cluster-role-to-user cluster-admin system:serviceaccount:default:myserviceaccount
+
+echo "127.0.0.1    docker-registry.vagrant.#{$tld}" >> /etc/hosts
+
+echo "Downloading OpenShift xpass templates..."
+git clone #{JBOSS_APP_TEMPLATES_URL} /tmp/xpass
+
+echo "Installing image streams..."
+pushd /tmp/xpass
+#{$oc} -n #{DEFAULT_NAMESPACE} create -f jboss-image-streams.json 
+for app in amq eap secrets webserver; do
+  pushd ${app}
+  for f in *.json; do
+    echo "Installing ${f} template from ${app}"
+    #{$oc} -n #{DEFAULT_NAMESPACE} create -f ${f}
+  done
+  popd
+done
+popd
+
+# can't use the snazzy script so lets pull them by hand
+#downloadImages "deploymentConfig" "router"
+docker pull openshift/origin-haproxy-router:v1.0.0
+
+echo "Installing router..."
+#{$oadm} router --create --credentials=/var/lib/openshift/openshift.local.config/master/openshift-router.kubeconfig
+#
+echo "Creating sample project openshift-dev ..."
+#{$oadm} new-project openshift-dev --description="OpenShift Development"
+
+
+# Create route to registry. Please note that this route can be used for applications to find
+# the images. Since it goes through the router this is not optimal for production setups
+# when internally images are fetched.
+echo "Creating route to router..."
+cat <<EOF | #{$oc} create -f -
+{
+    "kind": "Route",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "docker-registry-route"
+    },
+    "spec": {
+        "host": "docker-registry.vagrant.#{$tld}",
+        "to": {
+            "kind": "Service",
+            "name": "docker-registry"
+        }
+    }
+}
+EOF
+
+
+cat <<EOT
+
+
+
+
+--------------------------------------------------------------
+
+The OpenShift console is at: https://#{MASTER_API}/console
+
+--------------------------------------------------------------
+
+Now might be a good time to setup your host machine to work with OpenShift
+
+* Download a recent release of the binaries and add them to your PATH:
+
+   https://github.com/openshift/origin/releases/
+
+Now login to OpenShift via this command:
+
+   oc login https://#{MASTER_API}
+
+Then enter admin/admin for user/password.
+
+Over time your token may expire and you will need to reauthenticate via:
+
+   oc login
+
+Now to see the status of the system:
+
+   oc get pods
+
+or you can watch from the command line via one of these commands:
+
+   watch oc get pods
+   oc get pods --watch
+
+Accessing routes from your host machine is only through the 
+following ports because of the way networking is configured:
+  
+  host     guest
+  ====     ====
+  10080 ->  80
+  10443 -> 443
+
+EOT
+
+echo "Creating the registry..."
+#{$oadm} registry --create --credentials=/var/lib/openshift/openshift.local.config/master/openshift-registry.kubeconfig
+
+SCRIPT
+
+$windows = (/cygwin|mswin|mingw|bccwin|wince|emx/ =~ RUBY_PLATFORM) != nil
+
+if $windows && Vagrant.has_plugin?("vagrant-hostmanager")
+  raise 'Conflicting vagrant plugin detected - please uninstall & then try again: vagrant plugin uninstall vagrant-hostmanager'
+end
+$pluginToCheck = $windows ? "vagrant-hostmanager-fabric8" : "landrush"
+unless Vagrant.has_plugin?($pluginToCheck)
+  raise 'Please type this command then try again: vagrant plugin install ' + $pluginToCheck
+end
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+   puts "======================================================================="
+   puts ""
+   puts "Successfully utilizing this Vagrant file requires preparation: "
+   puts "  Ref: https://github.com/fabric8io/fabric8-installer/tree/master/vagrant/openshift/latest#prepare-vargant"
+   puts ""
+   puts "======================================================================="
+
+  # Landrush is used together with wildcard dns entries to map all
+  # routes to the proper services
+  if $windows
+    config.hostmanager.enabled = true
+    config.hostmanager.manage_host = true
+    config.hostmanager.ignore_private_ip = false
+    config.hostmanager.include_offline = true
+
+  #  config.hostmanager.aliases = %w(fabric8.vagrant.f8 jenkins.vagrant.f8 gogs.vagrant.f8 nexus.vagrant.f8 hubot-web-hook.vagrant.f8 letschat.vagrant.f8 kibana.vagrant.f8 taiga.vagrant.f8 fabric8-forge.vagrant.f8)
+  else
+    config.landrush.enabled = true
+    config.landrush.tld = $tld
+    config.landrush.host_ip_address = MASTER_API_IP
+  end
+
+  config.vm.box = "centos7_inst"
+  config.vm.box_url =  "http://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_virtualbox_inst.box"
+
+  config.vm.network "private_network", ip: MASTER_API_IP
+  config.vm.network "forwarded_port", guest: MASTER_API_PORT, host: MASTER_API_PORT
+  config.vm.network "forwarded_port", guest: 80, host: 10080
+  config.vm.network "forwarded_port", guest: 443, host: 10443
+  config.vm.network "forwarded_port", guest: 8080, host: 8080
+
+  config.vm.hostname = "vagrant." + $tld
+
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 4096
+    v.cpus = 2
+    v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+  end
+
+  config.vm.provider :libvirt do |v|
+    v.cpus = 2
+    v.memory = 4096
+  end
+
+  config.vm.provision "shell", inline: $provisionScript, keep_color: true
+
+end
