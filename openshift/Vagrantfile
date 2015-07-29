@@ -31,6 +31,13 @@ if [ -d '/var/lib/openshift' ]; then
   exit 0
 fi
 
+   echo "======================================================================="
+   echo ""
+   echo "Successfully utilizing this Vagrant file requires preparation: "
+   echo "  Ref: https://github.com/fabric8io/fabric8-installer/tree/master/vagrant/openshift/latest#prepare-vargant"
+   echo ""
+   echo "======================================================================="
+
 yum makecache fast && yum update docker -y
 
 mkdir /tmp/openshift
@@ -53,6 +60,8 @@ After=network.service
 [Service]
 ExecStart=/usr/bin/openshift start --master-config=#{MASTER_CONFIG} --node-config=/var/lib/openshift/openshift.local.config/node-172.28.128.4/node-config.yaml
 WorkingDirectory=/var/lib/openshift/
+StandardOutput=syslog+console
+StandardError=syslog+console
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -239,6 +248,8 @@ following ports because of the way networking is configured:
   10080 ->  80
   10443 -> 443
 
+Server logs can be found in /var/log/messages
+
 EOT
 
 echo "Creating the registry..."
@@ -258,12 +269,6 @@ end
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-   puts "======================================================================="
-   puts ""
-   puts "Successfully utilizing this Vagrant file requires preparation: "
-   puts "  Ref: https://github.com/fabric8io/fabric8-installer/tree/master/vagrant/openshift/latest#prepare-vargant"
-   puts ""
-   puts "======================================================================="
 
   # Landrush is used together with wildcard dns entries to map all
   # routes to the proper services
