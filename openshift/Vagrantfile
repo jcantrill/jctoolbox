@@ -12,15 +12,18 @@ JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-template
 
 Vagrant.require_version ">= 1.7.2"
 
+# Top level domain
+$tld = "openshift.dev"
+$hostname = "vagrant.#{$tld}"
+
 MASTER_API_IP="172.28.128.4"
 MASTER_API_PORT=8443
 MASTER_API="#{MASTER_API_IP}:#{MASTER_API_PORT}"
 
 MASTER_CONFIG="/var/lib/openshift/openshift.local.config/master/master-config.yaml"
+NODE_CONFIG="/var/lib/openshift/openshift.local.config/node-#{MASTER_API_IP}/node-config.yaml"
 
 
-# Top level domain
-$tld = "openshift.dev"
 
 $oadm = "oadm --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --server=https://#{MASTER_API}"
 $oc = "oc --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --server=https://#{MASTER_API}"
@@ -38,7 +41,7 @@ fi
    echo ""
    echo "======================================================================="
 
-yum makecache fast && yum update docker -y
+yum makecache fast && yum install socat git PyYAML -y
 
 mkdir /tmp/openshift
 echo "Downloading OpenShift binaries..."
@@ -58,7 +61,7 @@ Description=OpenShift
 Requires=docker.service network.service
 After=network.service
 [Service]
-ExecStart=/usr/bin/openshift start --master-config=#{MASTER_CONFIG} --node-config=/var/lib/openshift/openshift.local.config/node-172.28.128.4/node-config.yaml
+ExecStart=/usr/bin/openshift start --master-config=#{MASTER_CONFIG} --node-config=#{NODE_CONFIG}
 WorkingDirectory=/var/lib/openshift/
 StandardOutput=syslog+console
 StandardError=syslog+console
@@ -67,7 +70,8 @@ WantedBy=multi-user.target
 EOF
 
 echo "Updating the router subdomain to vagrant.#{$tld}"
-ruby -e "require 'yaml';c = YAML::load(File.read('#{MASTER_CONFIG}')); c['routingConfig']['subdomain']='vagrant.#{$tld}';File.open('#{MASTER_CONFIG}', 'w'){|f|f.write(c.to_yaml)}"
+python -c "import yaml; f = open('#{MASTER_CONFIG}', 'r+'); c=yaml.load(f);c['routingConfig']['subdomain']='vagrant.#{$tld}';f.write(yaml.dump(c,default_flow_style=False))"
+
 
 systemctl daemon-reload
 systemctl enable openshift.service
@@ -245,10 +249,20 @@ following ports because of the way networking is configured:
   
   host     guest
   ====     ====
-  10080 ->  80
-  10443 -> 443
+  1080 ->  80
+  1443 -> 443
+  
+To make the ha-proxy reachable from the host, you need to add a port forwarding rule from 80 to 1080, which
+requires root privilege. Use iptables on linux based:
+
+  sudo iptables -t nat -A OUTPUT -p tcp --dport 80 -j REDIRECT --to-port 1080
+
+or ipfw on BSD based OS:
+  
+  sudo ipfw add 100 fwd 127.0.0.1,1080 tcp from any to any 80 in
 
 Server logs can be found in /var/log/messages
+  
 
 EOT
 
@@ -282,19 +296,21 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   else
     config.landrush.enabled = true
     config.landrush.tld = $tld
-    config.landrush.host_ip_address = MASTER_API_IP
+    #config.landrush.host_ip_address = MASTER_API_IP
   end
 
-  config.vm.box = "centos7_inst"
-  config.vm.box_url =  "http://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_virtualbox_inst.box"
+  #config.vm.box = "centos7_inst"
+  #config.vm.box_url =  "http://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_virtualbox_inst.box"
+  config.vm.box = "jimmidyson/centos-7.1"
+  config.vm.box_version = "= 1.1.2"
 
   config.vm.network "private_network", ip: MASTER_API_IP
   config.vm.network "forwarded_port", guest: MASTER_API_PORT, host: MASTER_API_PORT
-  config.vm.network "forwarded_port", guest: 80, host: 10080
-  config.vm.network "forwarded_port", guest: 443, host: 10443
+  config.vm.network "forwarded_port", guest: 80, host: 1080
+  config.vm.network "forwarded_port", guest: 443, host: 1443
   config.vm.network "forwarded_port", guest: 8080, host: 8080
 
-  config.vm.hostname = "vagrant." + $tld
+  config.vm.hostname = $hostname
 
   config.vm.provider "virtualbox" do |v|
     v.memory = 4096
