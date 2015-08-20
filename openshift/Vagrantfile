@@ -7,7 +7,7 @@
 VAGRANTFILE_API_VERSION = "2"
 
 DEFAULT_NAMESPACE="openshift"
-OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.0.3/openshift-origin-v1.0.3-1695461-linux-amd64.tar.gz"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.0.4/openshift-origin-v1.0.4-757efd9-linux-amd64.tar.gz"
 JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
 
 Vagrant.require_version ">= 1.7.2"
@@ -43,11 +43,17 @@ fi
 
 yum makecache fast && yum install socat git PyYAML -y
 
-mkdir /tmp/openshift
-echo "Downloading OpenShift binaries..."
-curl --retry 999 --retry-max-time 0  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
-mv /tmp/openshift/* /usr/bin/
+if [ -d "/tmp/openshiftbinary" ] ; then 
+ echo "Copying OpenShift binaries from shared directory"
+ mv /tmp/openshiftbinary/* /usr/bin 
+else
+  mkdir /tmp/openshift
+  echo "Downloading OpenShift binaries..."
+  curl --connect-timeout 3 --retry 10 --retry-max-time 10  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
+  mv /tmp/openshift/* /usr/bin/
+fi
 
+echo "Creating manifests directory"
 mkdir -p /var/lib/openshift/openshift.local.manifests
 
 pushd /var/lib/openshift
@@ -119,6 +125,8 @@ cat <<EOF | #{$oc} create -f -
   kind: SecurityContextConstraints
   metadata:
     name: privileged
+    allowHostNetwork: true
+    allowHostPorts: true
   runAsUser:
     type: RunAsAny
   seLinuxContext:
@@ -177,10 +185,10 @@ popd
 
 # can't use the snazzy script so lets pull them by hand
 #downloadImages "deploymentConfig" "router"
-docker pull openshift/origin-haproxy-router:v1.0.0
+docker pull openshift/origin-haproxy-router
 
 echo "Installing router..."
-#{$oadm} router --create --credentials=/var/lib/openshift/openshift.local.config/master/openshift-router.kubeconfig
+#{$oadm} router --create --credentials=/var/lib/openshift/openshift.local.config/master/openshift-router.kubeconfig --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --service-account=privileged
 #
 echo "Creating sample project openshift-dev ..."
 #{$oadm} new-project openshift-dev --description="OpenShift Development"
@@ -324,5 +332,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.provision "shell", inline: $provisionScript, keep_color: true
+
+  if ENV["OPENSHIFT_BINARY_DIR"]
+    config.vm.synced_folder ENV["OPENSHIFT_BINARY_DIR"], "/tmp/openshiftbinary",
+      rsync__args: %w(--verbose --archive --delete), 
+      nfs_udp: false # has issues when using NFS from within a docker container
+  end
+
 
 end
