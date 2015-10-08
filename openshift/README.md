@@ -26,13 +26,13 @@ vagrant plugin install vagrant-hostmanager
 
 * Install `dnsmasq` so that all requests to `*.vagrant.openshift.dev` get resolved to the Vagrant VM's IP.
    
-* Add a line `server=/vagrant.dev/127.0.0.1#10053` to the `dnsmasq` configuration.
+* Add a line `server=/vagrant.openshift.dev/127.0.0.1#10053` to the `dnsmasq` configuration.
    
 For Ubuntu this looks like:
 
 ````
 sudo apt-get install -y resolvconf dnsmasq
-sudo sh -c 'echo "server=/vagrant.dev/127.0.0.1#10053" > /etc/dnsmasq.d/vagrant-landrush'
+sudo sh -c 'echo "server=/vagrant.openshift.dev/127.0.0.1#10053" > /etc/dnsmasq.d/vagrant-landrush'
 sudo service dnsmasq restart
 ````
 

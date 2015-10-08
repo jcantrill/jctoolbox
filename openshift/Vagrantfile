@@ -8,6 +8,7 @@ VAGRANTFILE_API_VERSION = "2"
 
 DEFAULT_NAMESPACE="openshift"
 OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.0.6/openshift-origin-v1.0.6-2695cdc-linux-amd64.tar.gz"
+OPENSHIFT_ROUTER_VERSION="v1.0.6"
 JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
 
 Vagrant.require_version ">= 1.7.2"
@@ -118,6 +119,8 @@ cat <<EOF | #{$oc} create -f -
 ---
   allowHostDirVolumePlugin: true
   allowPrivilegedContainer: true
+  allowHostNetwork: true
+  allowHostPorts: true
   apiVersion: v1
   groups:
   - system:cluster-admins
@@ -185,11 +188,11 @@ popd
 
 # can't use the snazzy script so lets pull them by hand
 #downloadImages "deploymentConfig" "router"
-docker pull openshift/origin-haproxy-router
+docker pull openshift/origin-haproxy-router:#{OPENSHIFT_ROUTER_VERSION}
 
 echo "Installing router..."
-#{$oadm} router --create --credentials=/var/lib/openshift/openshift.local.config/master/openshift-router.kubeconfig --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --service-account=privileged
-#
+#{$oadm} router -n default --credentials=/var/lib/openshift/openshift.local.config/master/openshift-router.kubeconfig --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --service-account=myserviceaccount --images=openshift/origin-haproxy-router:#{OPENSHIFT_ROUTER_VERSION}
+
 echo "Creating sample project openshift-dev ..."
 #{$oadm} new-project openshift-dev --description="OpenShift Development"
 
@@ -198,14 +201,13 @@ echo "Creating sample project openshift-dev ..."
 # the images. Since it goes through the router this is not optimal for production setups
 # when internally images are fetched.
 echo "Creating route to router..."
-cat <<EOF | #{$oc} create -f -
+cat <<EOF | #{$oc} create -n default -f -
 {
     "kind": "Route",
     "apiVersion": "v1",
     "metadata": {
         "name": "docker-registry-route"
-    },
-    "spec": {
+    }, "spec": {
         "host": "docker-registry.vagrant.#{$tld}",
         "to": {
             "kind": "Service",
