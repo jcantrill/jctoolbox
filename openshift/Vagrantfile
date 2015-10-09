@@ -59,7 +59,7 @@ mkdir -p /var/lib/openshift/openshift.local.manifests
 
 pushd /var/lib/openshift
 echo "Writing out OpenShift config"
-/usr/bin/openshift start --master=#{MASTER_API_IP} --cors-allowed-origins=.* --hostname=#{MASTER_API_IP} --write-config=/var/lib/openshift/openshift.local.config
+/usr/bin/openshift start --master=#{MASTER_API_IP} --public-master=#{$hostname} --cors-allowed-origins=.* --hostname=#{MASTER_API_IP} --write-config=/var/lib/openshift/openshift.local.config
 
 echo "Creating openshift.service"
 cat <<EOF > /usr/lib/systemd/system/openshift.service
@@ -262,15 +262,6 @@ following ports because of the way networking is configured:
   1080 ->  80
   1443 -> 443
   
-To make the ha-proxy reachable from the host, you need to add a port forwarding rule from 80 to 1080, which
-requires root privilege. Use iptables on linux based:
-
-  sudo iptables -t nat -A OUTPUT -p tcp --dport 80 -j REDIRECT --to-port 1080
-
-or ipfw on BSD based OS:
-  
-  sudo ipfw add 100 fwd 127.0.0.1,1080 tcp from any to any 80 in
-
 Server logs can be found in /var/log/messages
   
 
