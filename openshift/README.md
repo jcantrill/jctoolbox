@@ -2,6 +2,11 @@
 
 Instructions shamelessly yanked from [Fabric8](https://github.com/fabric8io/fabric8-installer/tree/master/vagrant/openshift)
 
+Environment variables for overriding behavior which may be of interest:
+
+* OPENSHIFT_BINARY_DIR   - Host directory that has binaries instead of downloading.  Useful for later binaries
+* SHARED_FOLDERS         - A colon delimited list of paths to share into the image.  Shared at /home/vagrant/share/<sharebasename>
+
 ### Download and Install
 
 * Download and install [VirtualBox](https://www.virtualbox.org/wiki/Downloads) 
