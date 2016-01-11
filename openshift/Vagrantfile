@@ -62,6 +62,10 @@ pushd /var/lib/openshift
 echo "Writing out OpenShift config"
 /usr/bin/openshift start --master=#{MASTER_API_IP} --public-master=#{$hostname} --cors-allowed-origins=.* --hostname=#{MASTER_API_IP} --write-config=/var/lib/openshift/openshift.local.config
 
+chmod -R 755 /var/lib/openshift
+chown -R vagrant:vagrant /var/lib/openshift
+echo "KUBECONFIG=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig" >> /home/vagrant/.bashrc
+
 echo "Creating openshift.service"
 cat <<EOF > /usr/lib/systemd/system/openshift.service
 [Unit]
