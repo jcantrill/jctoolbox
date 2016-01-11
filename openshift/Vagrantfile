@@ -7,8 +7,8 @@
 VAGRANTFILE_API_VERSION = "2"
 
 DEFAULT_NAMESPACE="openshift"
-OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.0.6/openshift-origin-v1.0.6-2695cdc-linux-amd64.tar.gz"
-OPENSHIFT_ROUTER_VERSION="v1.0.6"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.1.0.1/openshift-origin-server-v1.1.0.1-bf56e23-linux-64bit.tar.gz"
+OPENSHIFT_ROUTER_VERSION="v1.1.0.1"
 JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
 
 Vagrant.require_version ">= 1.7.2"
@@ -51,11 +51,12 @@ else
   mkdir /tmp/openshift
   echo "Downloading OpenShift binaries..."
   curl --connect-timeout 3 --retry 10 --retry-max-time 10  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
-  mv /tmp/openshift/* /usr/bin/
+  find /tmp/openshift -type f -exec mv -i {} /usr/bin \\;
 fi
 
-echo "Creating manifests directory"
+echo "Creating manifests and config directories"
 mkdir -p /var/lib/openshift/openshift.local.manifests
+mkdir -p /var/lib/openshift/openshift.local.config
 
 pushd /var/lib/openshift
 echo "Writing out OpenShift config"
@@ -295,15 +296,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   #  config.hostmanager.aliases = %w(fabric8.vagrant.f8 jenkins.vagrant.f8 gogs.vagrant.f8 nexus.vagrant.f8 hubot-web-hook.vagrant.f8 letschat.vagrant.f8 kibana.vagrant.f8 taiga.vagrant.f8 fabric8-forge.vagrant.f8)
   else
-    config.landrush.enabled = true
+    config.landrush.enabled = false
     config.landrush.tld = $tld
     #config.landrush.host_ip_address = MASTER_API_IP
   end
 
   #config.vm.box = "centos7_inst"
   #config.vm.box_url =  "http://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_virtualbox_inst.box"
-  config.vm.box = "jimmidyson/centos-7.1"
-  config.vm.box_version = "= 1.1.2"
+  config.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/fedora_virtualbox_inst.box"
+  #config.vm.box_version = "= 1.1.2"
 
   config.vm.network "private_network", ip: MASTER_API_IP
   config.vm.network "forwarded_port", guest: MASTER_API_PORT, host: MASTER_API_PORT
