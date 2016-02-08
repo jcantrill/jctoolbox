@@ -7,7 +7,7 @@
 VAGRANTFILE_API_VERSION = "2"
 
 DEFAULT_NAMESPACE="openshift"
-OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.1.0.1/openshift-origin-server-v1.1.0.1-bf56e23-linux-64bit.tar.gz"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.1.2/openshift-origin-server-v1.1.2-2711160-linux-64bit.tar.gz"
 OPENSHIFT_ROUTER_VERSION="v1.1.0.1"
 JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
 
