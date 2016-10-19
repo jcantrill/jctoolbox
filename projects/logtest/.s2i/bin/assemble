@@ -1,4 +1,3 @@
 #!/bin/bash
 
-source env_vars 
-mv /tmp/src $APP_ROOT
+mv /tmp/src /opt/app-root
