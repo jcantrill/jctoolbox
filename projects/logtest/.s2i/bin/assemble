@@ -1,3 +1,8 @@
 #!/bin/bash
 
-mv /tmp/src/* /opt/app-root/src
+HOME=/opt/app-root/src
+mv /tmp/src/* $HOME 
+
+pushd $HOME
+npm install
+popd
