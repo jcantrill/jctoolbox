@@ -1,0 +1,3 @@
+!#/bin/sh
+
+node /opt/app-root/src/app/index.js
