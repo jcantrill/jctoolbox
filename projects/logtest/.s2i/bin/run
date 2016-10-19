@@ -1,3 +1,5 @@
-#!/bin/sh
+#!/bin/bash
 
-node /opt/app-root/src/app/index.js
+source env_vars
+
+node ${APP_ROOT}/src/app/index.js
