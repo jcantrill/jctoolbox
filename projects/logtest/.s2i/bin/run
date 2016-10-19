@@ -1,3 +1,5 @@
 #!/bin/bash
 
-node /opt/app-root/src/app/index.js
+pushd /opt/app-root/src
+node app/index.js
+popd
