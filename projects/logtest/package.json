@@ -1,0 +1,26 @@
+{
+  "name": "logtest",
+  "version": "0.0.1",
+  "description": "A Sample app to write logs for testing aggregated logging",
+  "main": "app/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jcantrill/jctoolbox.git"
+  },
+  "keywords": [
+    "openshift",
+    "nodejs"
+  ],
+  "author": "jcantrill",
+  "license": "Apache 2.0",
+  "bugs": {
+    "url": "https://github.com/jcantrill/jctoolbox/issues"
+  },
+  "homepage": "https://github.com/jcantrill/jctoolbox#readme",
+  "dependencies": {
+    "express": "^4.14.0"
+  }
+}
