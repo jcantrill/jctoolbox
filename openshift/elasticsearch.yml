@@ -1,0 +1,76 @@
+searchguard.ssl.transport.http.enabled: true
+
+#cluster:
+#  name: ${CLUSTER_NAME}
+
+script:
+  disable_dynamic: false
+
+#discovery:
+#  zen:
+#    ping:
+#      multicast:
+#        enabled: false
+#
+#cloud:
+#  k8s:
+#    servicedns: ${SERVICE_DNS}
+
+#discovery:
+#  type: io.fabric8.elasticsearch.discovery.k8s.K8sDiscoveryModule
+
+#path:
+#  data: /elasticsearch/persistent/${CLUSTER_NAME}/data
+#  logs: /elasticsearch/${CLUSTER_NAME}/logs
+#  work: /elasticsearch/${CLUSTER_NAME}/work
+
+index:
+  number_of_shards: 1
+  number_of_replicas: 0
+
+searchguard:
+#  key_path: /elasticsearch/${CLUSTER_NAME}
+  allow_all_from_loopback: false
+  authentication:
+    authentication_backend:
+      impl: com.floragunn.searchguard.authentication.backend.simple.AlwaysSucceedAuthenticationBackend
+#      impl: com.floragunn.searchguard.authentication.backend.simple.SettingsBasedAuthenticationBackend
+#    authorizer:
+#      impl: com.floragunn.searchguard.authorization.simple.SettingsBasedAuthorizator
+    http_authenticator:
+      impl: io.fabric8.elasticsearch.plugin.HTTPSProxyClientCertAuthenticator
+#      impl: com.floragunn.searchguard.authentication.http.basic.HTTPBasicAuthenticator
+    proxy:
+      header: X-Proxy-Remote-User
+      trusted_ips: ["127.0.0.1"]
+    settingsdb:
+      user:
+        admin: secret
+        fluentd: changeme
+        kibana: changeme
+    authorization:
+      settingsdb:
+        roles:
+          admin: ["root"]
+          fluentd: ["fluentd"]
+          kibana: ["kibana"]
+  ssl:
+    transport:
+      node.encforce_hostname_verification: false
+      http:
+        keystore_type: JKS
+        keystore_filepath: /home/jeff.cantrill/apps/elasticsearch-1.5.2/keys/foo.jks
+        keystore_password: kspass
+        enforce_clientauth: false
+        truststore_type: JKS
+        truststore_filepath: /home/jeff.cantrill/apps/elasticsearch-1.5.2/keys/foo.jks
+        truststore_password: kspass
+  actionrequestfilter:
+    names: ["readonly", "fluentd", "kibana"]
+    readonly:
+      allowed_actions: ["indices:data/read/*", "*monitor*"]
+      forbidden_actions: ["cluster:*", "indices:admin*"]
+    fluentd:
+      allowed_actions: ["indices:data/write/*", "indices:admin/create"]
+    kibana:
+      allowed_actions: ["indices:data/read/*", "*monitor*", "indices:admin/read", "indices:admin/mappings/fields/get*"]

@@ -1,0 +1,341 @@
+# coding: utf-8
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+
+VAGRANTFILE_API_VERSION = "2"
+
+DEFAULT_NAMESPACE="openshift"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.4.0-alpha.1/openshift-origin-server-v1.4.0-alpha.1.f189ede-linux-64bit.tar.gz"
+OPENSHIFT_ROUTER_VERSION="v1.4.0-alpha.1"
+JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
+
+Vagrant.require_version ">= 1.7.2"
+
+# Top level domain
+
+MASTER_API_IP="172.28.128.4"
+MASTER_API_PORT=8443
+MASTER_API="#{MASTER_API_IP}:#{MASTER_API_PORT}"
+
+MASTER_CONFIG="/var/lib/openshift/openshift.local.config/master/master-config.yaml"
+NODE_CONFIG="/var/lib/openshift/openshift.local.config/node-#{MASTER_API_IP}/node-config.yaml"
+
+$tld = "#{MASTER_API_IP}.xip.io"
+$hostname = "vagrant.#{$tld}"
+
+
+$oadm = "oadm --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --server=https://#{MASTER_API}"
+$oc = "oc --config=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig --server=https://#{MASTER_API}"
+
+
+$provisionScript = <<SCRIPT
+if [ -d '/var/lib/openshift' ]; then
+  exit 0
+fi
+
+   echo "======================================================================="
+   echo ""
+   echo "Successfully utilizing this Vagrant file requires preparation: "
+   echo "  Ref: https://github.com/fabric8io/fabric8-installer/tree/master/vagrant/openshift/latest#prepare-vargant"
+   echo ""
+   echo "======================================================================="
+
+yum makecache fast && yum install socat git PyYAML pyOpenSSL python2-dnf libselinux-python -y
+pip install paramiko PyYAML Jinja2 httplib2 six
+
+
+if [ -d "/tmp/openshiftbinary" ] ; then 
+ echo "Copying OpenShift binaries from shared directory"
+ mv /tmp/openshiftbinary/* /usr/bin 
+else
+  mkdir /tmp/openshift
+  echo "Downloading OpenShift binaries..."
+  curl --connect-timeout 3 --retry 10 --retry-max-time 10  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
+  find /tmp/openshift -type f -exec mv -i {} /usr/bin \\;
+fi
+
+echo "Creating manifests and config directories"
+mkdir -p /var/lib/openshift/openshift.local.manifests
+mkdir -p /var/lib/openshift/openshift.local.config
+
+pushd /var/lib/openshift
+echo "Writing out OpenShift config"
+/usr/bin/openshift start --master=#{MASTER_API_IP} --public-master=#{$hostname} --cors-allowed-origins=.* --hostname=#{MASTER_API_IP} --write-config=/var/lib/openshift/openshift.local.config
+
+chmod -R 755 /var/lib/openshift
+chown -R vagrant:vagrant /var/lib/openshift
+echo "KUBECONFIG=/var/lib/openshift/openshift.local.config/master/admin.kubeconfig" >> /home/vagrant/.bashrc
+
+echo "Creating openshift.service"
+cat <<EOF > /usr/lib/systemd/system/openshift.service
+[Unit]
+Description=OpenShift
+Requires=docker.service network.service
+After=network.service
+[Service]
+ExecStart=/usr/bin/openshift start --master-config=#{MASTER_CONFIG} --node-config=#{NODE_CONFIG}
+WorkingDirectory=/var/lib/openshift/
+StandardOutput=syslog+console
+StandardError=syslog+console
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Updating the router subdomain to vagrant.#{$tld}"
+python -c "import yaml; f = open('#{MASTER_CONFIG}', 'r+'); c=yaml.load(f);c['routingConfig']['subdomain']='vagrant.#{$tld}';f.write(yaml.dump(c,default_flow_style=False))"
+
+
+systemctl daemon-reload
+systemctl enable openshift.service
+systemctl start openshift.service
+
+echo "Waiting for the server to become available..."
+while true; do
+  curl -k -s -f -o /dev/null --connect-timeout 1 https://#{MASTER_API}/healthz/ready && break || sleep 1
+done
+echo "Master is ready..."
+
+echo "Adding admin user..."
+echo "#{$oadm} policy add-cluster-role-to-user cluster-admin admin"
+#{$oadm} policy add-cluster-role-to-user cluster-admin admin
+
+echo "Deleting restricted scc..."
+#{$oc} delete scc restricted
+
+echo "Re-creating restricted scc..."
+cat <<EOF | #{$oc} create -f -
+---
+  apiVersion: v1
+  groups:
+  - system:authenticated
+  kind: SecurityContextConstraints
+  metadata:
+    name: restricted
+  runAsUser:
+    type: RunAsAny
+  seLinuxContext:
+    type: MustRunAs
+EOF
+
+echo "Deleting privileged scc..."
+#{$oc} delete scc privileged
+echo "Re-creating privileged scc..."
+cat <<EOF | #{$oc} create -f -
+---
+  allowHostDirVolumePlugin: true
+  allowPrivilegedContainer: true
+  allowHostNetwork: true
+  allowHostPorts: true
+  apiVersion: v1
+  groups:
+  - system:cluster-admins
+  - system:nodes
+  kind: SecurityContextConstraints
+  metadata:
+    name: privileged
+    allowHostNetwork: true
+    allowHostPorts: true
+  runAsUser:
+    type: RunAsAny
+  seLinuxContext:
+    type: RunAsAny
+  users:
+  - system:serviceaccount:openshift-infra:build-controller
+  - system:serviceaccount:default:default
+  - system:serviceaccount:default:myserviceaccount
+EOF
+
+echo "Creating OpenShift Secret..."
+cat <<EOF | #{$oc} create -f -
+---
+  apiVersion: "v1"
+  kind: "Secret"
+  metadata:
+    name: "openshift-cert-secrets"
+  data:
+    root-cert: "$(base64 -w 0 /var/lib/openshift/openshift.local.config/master/ca.crt)"
+    admin-cert: "$(base64 -w 0 /var/lib/openshift/openshift.local.config/master/admin.crt)"
+    admin-key: "$(base64 -w 0 /var/lib/openshift/openshift.local.config/master/admin.key)"
+EOF
+
+echo "Creating 'myserviceaccount'"
+cat <<EOF | #{$oc} create -f -
+---
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: myserviceaccount
+  secrets:
+    -
+      name: openshift-cert-secrets
+EOF
+
+echo "Adding 'myserviceaccount' as cluster-admin"
+#{$oadm} policy add-cluster-role-to-user cluster-admin system:serviceaccount:default:myserviceaccount
+
+echo "127.0.0.1    docker-registry.vagrant.#{$tld}" >> /etc/hosts
+
+echo "Downloading OpenShift xpass templates..."
+git clone #{JBOSS_APP_TEMPLATES_URL} /tmp/xpass
+
+echo "Installing image streams..."
+pushd /tmp/xpass
+#{$oc} -n #{DEFAULT_NAMESPACE} create -f jboss-image-streams.json 
+for app in amq eap secrets webserver; do
+  pushd ${app}
+  for f in *.json; do
+    echo "Installing ${f} template from ${app}"
+    #{$oc} -n #{DEFAULT_NAMESPACE} create -f ${f}
+  done
+  popd
+done
+popd
+
+# can't use the snazzy script so lets pull them by hand
+#downloadImages "deploymentConfig" "router"
+docker pull openshift/origin-haproxy-router:#{OPENSHIFT_ROUTER_VERSION}
+
+echo "Installing router..."
+#{$oc} create serviceaccount router -n default
+#{$oadm} policy add-scc-to-user privileged system:serviceaccount:default:router
+#{$oadm} policy add-scc-to-user hostnetwork -z router
+#{$oadm} router -n default --service-account=router --images=openshift/origin-haproxy-router:#{OPENSHIFT_ROUTER_VERSION}
+
+echo "Creating the registry..."
+#{$oadm} policy add-scc-to-user privileged system:serviceaccount:default:registry
+#{$oadm} registry --create --service-account=registry
+
+# Create route to registry. Please note that this route can be used for applications to find
+# the images. Since it goes through the router this is not optimal for production setups
+# when internally images are fetched.
+
+cat << EOT
+
+echo "Creating route to registry..."
+#{$oc} expose service docker-registry -n default
+
+echo "Creating sample project openshift-dev ..."
+#{$oc} new-project openshift-dev --description="OpenShift Development"
+
+
+--------------------------------------------------------------
+
+The OpenShift console is at: https://#{MASTER_API}/console
+
+--------------------------------------------------------------
+
+Now might be a good time to setup your host machine to work with OpenShift
+
+* Download a recent release of the binaries and add them to your PATH:
+
+   https://github.com/openshift/origin/releases/
+
+Now login to OpenShift via this command:
+
+   oc login https://#{MASTER_API}
+
+Then enter admin/admin for user/password.
+
+Over time your token may expire and you will need to reauthenticate via:
+
+   oc login
+
+Now to see the status of the system:
+
+   oc get pods
+
+or you can watch from the command line via one of these commands:
+
+   watch oc get pods
+   oc get pods --watch
+
+Accessing routes from your host machine is only through the 
+following ports because of the way networking is configured:
+  
+  host     guest
+  ====     ====
+  1080 ->  80
+  1443 -> 443
+  
+Server logs can be found in /var/log/messages
+  
+
+EOT
+
+SCRIPT
+
+$windows = (/cygwin|mswin|mingw|bccwin|wince|emx/ =~ RUBY_PLATFORM) != nil
+
+if $windows && Vagrant.has_plugin?("vagrant-hostmanager")
+  raise 'Conflicting vagrant plugin detected - please uninstall & then try again: vagrant plugin uninstall vagrant-hostmanager'
+end
+$pluginToCheck = $windows ? "vagrant-hostmanager-fabric8" : "landrush"
+unless Vagrant.has_plugin?($pluginToCheck)
+  raise 'Please type this command then try again: vagrant plugin install ' + $pluginToCheck
+end
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+
+  # Landrush is used together with wildcard dns entries to map all
+  # routes to the proper services
+  if $windows
+    config.hostmanager.enabled = true
+    config.hostmanager.manage_host = true
+    config.hostmanager.ignore_private_ip = false
+    config.hostmanager.include_offline = true
+
+  #  config.hostmanager.aliases = %w(fabric8.vagrant.f8 jenkins.vagrant.f8 gogs.vagrant.f8 nexus.vagrant.f8 hubot-web-hook.vagrant.f8 letschat.vagrant.f8 kibana.vagrant.f8 taiga.vagrant.f8 fabric8-forge.vagrant.f8)
+  else
+    config.landrush.enabled = true
+    config.landrush.tld = $tld
+    #config.landrush.host_ip_address = MASTER_API_IP
+  end
+
+  #config.vm.box = "centos7_inst"
+  #config.vm.box_url =  "http://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_virtualbox_inst.box"
+  #config.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/fedora_virtualbox_inst.box"
+  #config.vm.box_version = "= 1.1.2"
+
+  config.vm.network "private_network", ip: MASTER_API_IP
+  config.vm.network "forwarded_port", guest: MASTER_API_PORT, host: 8443 #MASTER_API_PORT
+  config.vm.network "forwarded_port", guest: 80, host: 1080
+  config.vm.network "forwarded_port", guest: 443, host: 1443
+  #config.vm.network "forwarded_port", guest: 8080, host: 8080
+
+  config.vm.hostname = $hostname
+
+  config.vm.provider "virtualbox" do |v, override|
+    override.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/fedora_virtualbox_inst.box"
+    v.memory = 4096
+    v.cpus = 2
+    v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+  end
+
+  config.vm.provider :libvirt do |v, override|
+    override.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/fedora_libvirt_inst.box"
+    v.cpus = 2
+    v.memory = 4096
+  end
+
+  config.vm.provision "shell", inline: $provisionScript, keep_color: true
+
+  if ENV["OPENSHIFT_BINARY_DIR"]
+    config.vm.synced_folder ENV["OPENSHIFT_BINARY_DIR"], "/tmp/openshiftbinary",
+      rsync__args: %w(--verbose --archive --delete), 
+      nfs_udp: false # has issues when using NFS from within a docker container
+  end
+
+  if ENV["SHARE_FOLDERS"]
+    ENV["SHARE_FOLDERS"].split(':').each do |share|
+      config.vm.synced_folder share, 
+        "/home/vagrant/share/#{File.basename(share)}",
+        rsync__args: %w(--verbose --archive --delete), 
+        nfs_udp: false # has issues when using NFS from within a docker container
+    end
+  end
+
+
+end

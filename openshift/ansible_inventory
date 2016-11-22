@@ -1,0 +1,11 @@
+[first_master]
+172.28.128.4 ansible_connection=local become=true
+
+[first_master:vars]
+containerized=true
+docker_protect_installed_version=true
+deployment_type=origin
+openshift_release=v1.3.1
+
+image_version=v1.4.0-rc1
+
