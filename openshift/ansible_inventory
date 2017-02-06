@@ -1,11 +1,63 @@
-[first_master]
-172.28.128.4 ansible_connection=local become=true
+[oo_first_master]
+#127.0.0.1 ansible_connection=local become=true
+#192.168.121.195 ansible_ssh_host=vagrant@192.168.121.95 ansible_ssh_user=vagrant ansible_user=root ansible_ssh_private_key_file=/home/jeff.cantrill/.ssh/id_rsa
+192.168.121.195 ansible_ssh_user=vagrant ansible_user=root ansible_ssh_private_key_file=/home/jeff.cantrill/.ssh/id_rsa ansible_become=true
 
-[first_master:vars]
+[oo_first_master:vars]
 containerized=true
 docker_protect_installed_version=true
 deployment_type=origin
-openshift_release=v1.3.1
+openshift_release=v1.4.0-rc1
+openshift_logging_install_logging=true
+required_packages=[]
 
-image_version=v1.4.0-rc1
+openshift_image_version=v1.4.0-rc1
+#openshift_logging_image_prefix=172.30.30.217:5000/logging/origin-
+openshift_logging_image_version=1.4.0
 
+openshift_logging_namespace=logging
+openshift_diagnostics_kubeconfig=/etc/origin/master/admin.kubeconfig
+
+openshift_logging_kibana_hostname=kibana.192.168.121.204.xip.io
+
+openshift_logging_es_cluster_size=2
+#openshift_logging_es_pvc_size=10G
+#openshift_logging_es_memory_limit=1024M
+#openshift_logging_es_cpu_limit=200m
+#openshift_logging_fluentd_memory_limit=1024M
+#openshift_logging_fluentd_cpu_limit=200m
+#openshift_logging_curator_memory_limit=1024M
+#openshift_logging_curator_cpu_limit=200m
+#openshift_logging_kibana_memory_limit=1024M
+#openshift_logging_kibana_cpu_limit=200m
+#openshift_logging_kibana_proxy_memory_limit=1024M
+#openshift_logging_kibana_proxy_cpu_limit=200m
+
+#openshift_logging_es_ops_cpu_limit=300m
+#openshift_logging_es_ops_memory_limit=2048M
+#openshift_logging_fluentd_ops_memory_limit=2048M
+#openshift_logging_fluentd_ops_cpu_limit=300m
+#openshift_logging_curator_ops_memory_limit=2048M
+#openshift_logging_curator_ops_cpu_limit=300m
+#openshift_logging_kibana_ops_memory_limit=2048M
+#openshift_logging_kibana_ops_cpu_limit=300m
+#openshift_logging_kibana_ops_proxy_memory_limit=2048M
+#openshift_logging_kibana_ops_proxy_cpu_limit=300m
+
+#openshift_logging_use_ops=true
+#openshift_logging_es_ops_cluster_size=1
+#openshift_logging_es_ops_pvc_prefix=foo-
+openshift_logging_es_ops_pvc_size=10G
+
+
+openshift_metrics_image_prefix=172.30.30.217:5000/openshift-infra/origin-
+openshift_metrics_hawkular_hostname=127.0.0.1
+#openshift_metrics_hawkular_replicas=2
+#openshift_metrics_cassandra_replica=2
+#openshift_metrics_hawkular_cert=/home/vagrant/hawkular-metrics.crt
+#openshift_metrics_hawkular_key=/home/vagrant/hawkular-metrics.key
+#openshift_metrics_hawkular_ca=/home/vagrant/hawkular-metrics-ca.crt
+#openshift_metrics_cassandra_limits_memory=256m
+#openshift_metrics_cassandra_requests_memory=256m
+#openshift_metrics_hawkular_limits_memory=256m
+#openshift_metrics_hawkular_requests_memory=256m

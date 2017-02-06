@@ -1,0 +1,13 @@
+#!/bin/bash
+DIST_GIT_DIR=${DIST_GIT_DIR:-/home/jeff.cantrill/dist-git}
+HOME_DIR=${HOME_DIR:-$HOME}
+USER=${USER:-jcantril}
+
+docker run \
+  -v $DIST_GIT_DIR:/opt/share/dist-git  \
+  -v $HOME_DIR:$HOME_DIR \
+  -v /etc/passwd:/etc/passwd \
+  -e $USER \
+  -it --privileged \
+  release_eng \
+  /bin/bash

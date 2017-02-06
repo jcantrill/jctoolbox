@@ -8,8 +8,8 @@ VAGRANTFILE_API_VERSION = "2"
 
 DEFAULT_NAMESPACE="openshift"
 IMAGE_PREFIX="openshift/origin"
-IMAGE_VERSION="v1.3.1"
-OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.3.1/openshift-origin-client-tools-v1.3.1-dad658de7465ba8a234a4fb40b5b446a45a4cee1-linux-64bit.tar.gz"
+IMAGE_VERSION="v1.4.0-rc1"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.4.0-rc1/openshift-origin-client-tools-v1.4.0-rc1.b4e0954-linux-64bit.tar.gz"
 OPENSHIFT_ROUTER_VERSION=$IMAGE_VERSION
 JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
 
@@ -26,7 +26,7 @@ $tld = "#{MASTER_API_IP}.xip.io"
 $hostname = "vagrant.#{$tld}"
 
 $provisionScript = <<SCRIPT
-dnf makecache fast && yum install socat git PyYAML pyOpenSSL python2-dnf libselinux-python dbus-python -y
+dnf makecache fast && yum install socat git PyYAML pyOpenSSL python2-dnf libselinux-python dbus-python httpd-tools -y
 pip install paramiko PyYAML Jinja2 httplib2 six
 
 sed -e '/^::1*/ s/^#*/#/' -i /etc/hosts
@@ -82,7 +82,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.hostname = $hostname
 
   config.vm.provider :libvirt do |v, override|
-    override.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/fedora_libvirt_inst.box"
+    override.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_libvirt_inst.box"
     v.cpus = 2
     v.memory = 4096
   end
