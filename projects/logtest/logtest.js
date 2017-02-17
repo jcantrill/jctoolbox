@@ -10,9 +10,15 @@ var port = 9999;
 
 var SAMPLE = fs.readFileSync(path.resolve(__dirname,'files/long.txt'));
 var OUT = null;
+var wrap_in_json = false;
+
 if(process.env.hasOwnProperty('OUT_FILE') && !empty(process.env.OUT_FILE)){
     OUT = fs.openSync(process.env.OUT_FILE, 'a+');
 }
+if(process.env.hasOwnProperty('WRAP_IN_JSON')){
+    wrap_in_json = true;
+}
+
 
 function getMessage(length){
    if(length > SAMPLE.length){
@@ -23,7 +29,9 @@ function getMessage(length){
 }
 
 function log(message){
-    message = JSON.stringify({ "message" : message });
+    if(wrap_in_json){
+      message = JSON.stringify({ "message" : message });
+    }
     if(OUT === null){
         console.log(message);
     }else{
