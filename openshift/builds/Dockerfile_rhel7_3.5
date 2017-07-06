@@ -1,0 +1,5 @@
+from brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/rhel7.3:7.3-released
+ADD http://git.engineering.redhat.com/git/users/ttomecek/osbs-signed-packages.git/plain/released.repo /etc/yum.repo.d/internal.repo
+ADD fake-3.5.repo /etc/yum.repos.d/
+ADD rhel.repo /etc/yum.repos.d/
+RUN yum-config-manager --enable rhel-7-server-ose-3.5-rpms && yum repolist 

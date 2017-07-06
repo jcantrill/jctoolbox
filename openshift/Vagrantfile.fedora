@@ -8,38 +8,45 @@ VAGRANTFILE_API_VERSION = "2"
 
 DEFAULT_NAMESPACE="openshift"
 IMAGE_PREFIX="openshift/origin"
-IMAGE_VERSION="v1.4.0-rc1"
-OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v1.4.0-rc1/openshift-origin-client-tools-v1.4.0-rc1.b4e0954-linux-64bit.tar.gz"
+IMAGE_VERSION="v3.6.0-alpha.2"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v3.6.0-alpha.2/openshift-origin-server-v3.6.0-alpha.2-3c221d5-linux-64bit.tar.gz"
 OPENSHIFT_ROUTER_VERSION=$IMAGE_VERSION
 JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
+PUDDLE_REPO="http://download-node-02.eng.bos.redhat.com/rcm-guest/puddles/RHAOS/AtomicOpenShift/3.6/latest/puddle.repo"
 
 Vagrant.require_version ">= 1.7.2"
 
 # Top level domain
 
-#MASTER_API_IP="192.168.121.151"
-MASTER_API_IP="172.28.128.4"
+MASTER_API_IP="192.168.2.39"
 MASTER_API_PORT=8443
 MASTER_API="#{MASTER_API_IP}:#{MASTER_API_PORT}"
 
-$tld = "#{MASTER_API_IP}.xip.io"
-$hostname = "vagrant.#{$tld}"
+$tld = "#{MASTER_API_IP}.nip.io"
+$hostname = "vagrant.openshift.dev"
 
 $provisionScript = <<SCRIPT
-dnf makecache fast && yum install socat git PyYAML pyOpenSSL python2-dnf libselinux-python dbus-python httpd-tools -y
-pip install paramiko PyYAML Jinja2 httplib2 six
+sudo wget --output-document=/etc/yum.repos.d/puddle.repo #{PUDDLE_REPO}
+
+yum makecache fast && \
+yum install epel-release -y && \
+yum install socat git PyYAML pyOpenSSL python2-dnf libselinux-python dbus-python httpd-tools -y
+#pip install paramiko PyYAML Jinja2 httplib2 six
+
+yum update docker -y
 
 sed -e '/^::1*/ s/^#*/#/' -i /etc/hosts
 systemctl restart docker
 
-if [ -d "/tmp/openshiftbinary" ] ; then 
+if [ -d "/tmp/openshiftbinary" ] ; then
  echo "Copying OpenShift binaries from shared directory"
- mv /tmp/openshiftbinary/* /usr/local/bin 
+ mv /tmp/openshiftbinary/* /usr/local/bin
 else
   if [ ! -f "/usr/bin/oc" ]; then
     mkdir /tmp/openshift
     echo "Downloading OpenShift binaries..."
-    ret=`curl --connect-timeout 10 --retry 10 --retry-max-time 10  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift`
+    curl --connect-timeout 10 --retry 10 --retry-max-time 10  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
+    ret=$?
     echo "ret: $ret"
     if [ $ret != 0 ]; then
       echo "Unable to download the openshift binary"
@@ -48,26 +55,6 @@ else
     find /tmp/openshift -type f -exec mv -i {} /usr/bin \\;
   fi
 fi
-
-KUBECONFIG= oc cluster down
-
-ORIGIN_DIR=/etc/origin
-if [ -z ${CLOBBER} ]; then
-  echo "Removing configs and host data..."
-  rm -rf $ORIGIN_DIR
-fi
-
-KUBECONFIG= oc cluster up --public-hostname=#{MASTER_API_IP} --host-data-dir=$ORIGIN_DIR/openshift.local.etcd \
-  --routing-suffix=#{$tld} --use-existing-config --image=#{IMAGE_PREFIX} --version=#{IMAGE_VERSION}  \
-  --host-config-dir=$ORIGIN_DIR
-
-KUBECONFIG="$ORIGIN_DIR/master/admin.kubeconfig"
-chmod 644 $KUBECONFIG
-echo "KUBECONFIG=$KUBECONFIG" >> /root/.bashrc
-echo "KUBECONFIG=$KUBECONFIG" >> /home/vagrant/.bashrc 
-
-oc adm policy add-cluster-role-to-user cluster-admin admin
-
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -78,13 +65,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.network "forwarded_port", guest: MASTER_API_PORT, host: 8443
   config.vm.network "forwarded_port", guest: 80, host: 1080
   config.vm.network "forwarded_port", guest: 443, host: 1443
+  config.vm.network "forwarded_port", guest: 8000, host: 8000
 
   config.vm.hostname = $hostname
 
   config.vm.provider :libvirt do |v, override|
-    override.vm.box = "https://mirror.openshift.com/pub/vagrant/boxes/openshift3/centos7_libvirt_inst.box"
+    override.vm.box = "fedora24"
     v.cpus = 2
     v.memory = 4096
+    v.cpu_mode = 'host-passthrough'
   end
 
   config.vm.provision "shell", inline: $provisionScript, keep_color: true

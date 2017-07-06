@@ -1,0 +1,92 @@
+# coding: utf-8
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+
+VAGRANTFILE_API_VERSION = "2"
+
+DEFAULT_NAMESPACE="openshift"
+IMAGE_PREFIX="openshift/origin"
+IMAGE_VERSION="v3.6.0-alpha.2"
+OPENSHIFT_BINARY_URL="https://github.com/openshift/origin/releases/download/v3.6.0-alpha.2/openshift-origin-server-v3.6.0-alpha.2-3c221d5-linux-64bit.tar.gz"
+OPENSHIFT_ROUTER_VERSION=$IMAGE_VERSION
+JBOSS_APP_TEMPLATES_URL="https://github.com/jboss-openshift/application-templates"
+PUDDLE_REPO="http://download-node-02.eng.bos.redhat.com/rcm-guest/puddles/RHAOS/AtomicOpenShift/3.6/latest/puddle.repo"
+
+Vagrant.require_version ">= 1.7.2"
+
+# Top level domain
+
+MASTER_API_IP="192.168.2.39"
+MASTER_API_PORT=8443
+MASTER_API="#{MASTER_API_IP}:#{MASTER_API_PORT}"
+
+$tld = "#{MASTER_API_IP}.nip.io"
+$hostname = "vagrant.openshift.dev"
+
+$provisionScript = <<SCRIPT
+wget --output-document=/etc/yum.repos.d/puddle.repo #{PUDDLE_REPO}
+
+yum makecache fast && \
+yum install epel-release -y && \
+yum install socat git PyYAML pyOpenSSL python2-dnf libselinux-python dbus-python httpd-tools -y
+#pip install paramiko PyYAML Jinja2 httplib2 six
+
+yum update docker -y
+
+sed -e '/^::1*/ s/^#*/#/' -i /etc/hosts
+systemctl restart docker
+
+if [ -d "/tmp/openshiftbinary" ] ; then
+ echo "Copying OpenShift binaries from shared directory"
+ mv /tmp/openshiftbinary/* /usr/local/bin
+else
+  if [ ! -f "/usr/bin/oc" ]; then
+    mkdir /tmp/openshift
+    echo "Downloading OpenShift binaries..."
+    curl --connect-timeout 10 --retry 10 --retry-max-time 10  -sSL #{OPENSHIFT_BINARY_URL} | tar xzv -C /tmp/openshift
+    ret=$?
+    echo "ret: $ret"
+    if [ $ret != 0 ]; then
+      echo "Unable to download the openshift binary"
+      exit 1
+    fi
+    find /tmp/openshift -type f -exec mv -i {} /usr/bin \\;
+  fi
+fi
+SCRIPT
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+#  config.landrush.enabled = true
+#  config.landrush.tld = $tld
+
+  config.vm.define :centos do |centos|
+    centos.vm.network "private_network", ip: MASTER_API_IP
+    centos.vm.network "forwarded_port", guest: MASTER_API_PORT, host: 8443
+    centos.vm.network "forwarded_port", guest: 80, host: 1080
+    centos.vm.network "forwarded_port", guest: 443, host: 1443
+    centos.vm.network "forwarded_port", guest: 8000, host: 8000
+  end
+
+  config.vm.hostname = $hostname
+
+  config.vm.provider :libvirt do |v, override|
+    #override.vm.box = "rhel73"
+    override.vm.box = "centos7"
+    v.cpus = 2
+    v.memory = 4096
+    v.cpu_mode = 'host-passthrough'
+  end
+
+  config.vm.provision "shell", inline: $provisionScript, keep_color: true
+
+  if ENV["SHARE_FOLDERS"]
+    ENV["SHARE_FOLDERS"].split(':').each do |share|
+      config.vm.synced_folder share, 
+        "/home/vagrant/share/#{File.basename(share)}",
+        rsync__args: %w(--verbose --archive --delete), 
+        nfs_udp: false # has issues when using NFS from within a docker container
+    end
+  end
+end

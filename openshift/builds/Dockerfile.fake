@@ -1,0 +1,6 @@
+FROM centos:centos7
+
+ADD fake-3.5.repo /etc/yum.repos.d/
+RUN yum makecache fast && \
+    yum install -y which
+

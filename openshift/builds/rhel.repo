@@ -1,0 +1,18 @@
+[rhel7]
+name=Red Hat Enterprise Linux 7
+baseurl=http://pulp.dist.prod.ext.phx2.redhat.com/content/dist/rhel/server/7/$releasever/$basearch/os/
+enabled=1
+gpgcheck=0
+ 
+[extras]
+name=Red Hat Enterprise Linux $releasever - Extras - $basearch
+baseurl=http://pulp.dist.prod.ext.phx2.redhat.com/content/dist/rhel/server/7/$releasever/$basearch/extras/os/
+enabled=1
+gpgcheck=0
+ 
+[optional]
+name=Red Hat Enterprise Linux $releasever - Optional - $basearch
+baseurl=http://pulp.dist.prod.ext.phx2.redhat.com/content/dist/rhel/server/7/$releasever/$basearch/optional/os/
+enabled=1
+gpgcheck=0
+

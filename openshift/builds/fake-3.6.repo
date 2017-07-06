@@ -1,0 +1,6 @@
+[rhel-7-server-ose-3.6-rpms]
+name=rhel-7-server-ose-3.6-rpms
+#baseurl=http://download-node-02.eng.bos.redhat.com/rcm-guest/puddles/RHAOS/AtomicOpenShift/3.6/2017-06-26.1/x86_64/os
+baseurl=http://download-node-02.eng.bos.redhat.com/rcm-guest/puddles/RHAOS/AtomicOpenShift/3.6/latest/x86_64/os
+gpgcheck=0
+enabled=1

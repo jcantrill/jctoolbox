@@ -1,0 +1,50 @@
+# cd /etc && wget https://raw.githubusercontent.com/openshift/origin-aggregated-logging/release-1.4/deployer/deployer.yaml
+# mv deployer.yaml logging-deployer
+# run like:
+# ANSIBLE_ROLES_PATH=roles ANSIBLE_FILTER_PLUGINS=filter_plugins ansible-playbook -i ../jctoolbox/openshift/aos-3.4.inventory playbooks/adhoc/openshift_hosted_logging_efk.yaml -vv
+[OSEv3:children]
+masters
+nodes
+etcd
+
+[OSEv3:vars]
+ansible_ssh_user=vagrant
+ansible_become=yes
+#deployment_type=openshift-enterprise
+containerized=true
+deployment_type=origin
+docker_protect_installed_version=true
+openshift_deployment_type=origin
+
+openshift_release=v1.4.1
+openshift_uninstall_images=False
+hosted_base=/etc
+
+# Variables for the aos-ansible playbooks:
+openshift_docker_additional_registries=registry.ops.openshift.com
+qe_repo_image_prepull=False
+aos_repo=https://mirror.openshift.com/enterprise/enterprise-3.4/latest/RH7-RHAOS-3.4/x86_64/os
+
+openshift_hosted_logging_deploy=True
+openshift_hosted_logging_master_public_url=192.168.121.173.xip.io
+openshift_hostname=192.168.121.173.xip.io
+openshift_hosted_logging_hostname=kibana.192.168.121.173.xip.io
+openshift_hosted_logging_elasticsearch_cluster_size=1
+
+openshift_hosted_logging_enable_ops_cluster=True
+openshift_hosted_logging_elasticsearch_ops_cluster_size=1
+openshift_hosted_logging_hostname=kibana-ops.192.168.121.173.xip.io
+
+[masters]
+192.168.121.173
+#m01.example.com openshift_hostname=m01.example.com openshift_ip=192.168.122.161 openshift_public_hostname=m01.example.com openshift_public_ip=192.168.122.161
+
+[nodes]
+192.168.121.173
+#m01.example.com openshift_hostname=m01.example.com openshift_ip=192.168.122.161 openshift_public_hostname=m01.example.com openshift_public_ip=192.168.122.161 openshift_scheduable=False
+#n01.example.com openshift_hostname=n01.example.com openshift_ip=192.168.122.217 openshift_public_hostname=n01.example.com openshift_public_ip=192.168.122.217 openshift_node_labels="{'region': 'infra'}"
+
+[etcd]
+192.168.121.173
+#m01.example.com openshift_hostname=m01.example.com openshift_ip=192.168.122.161 openshift_public_hostname=m01.example.com openshift_public_ip=192.168.122.161
+
