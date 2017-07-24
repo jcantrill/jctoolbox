@@ -6,7 +6,7 @@ fi
 
 script=$(basename "$0")
 
-KERBEROSID=${KERBEROSEID:-$USER}
+KERBEROSID=${KERBEROSID:-$USER}
 WORKDIR=${WORKDIR:-$(mktemp -d)}
 SOURCE_REPO=${SOURCE_REPO:-git@github.com:openshift/origin-aggregated-logging}
 
