@@ -58,7 +58,6 @@ declare -A distgitrepos=( \
               ["fluentd"]="logging-fluentd-docker" \
               ["curator"]="logging-curator-docker" \
               ["kibana"]="logging-kibana-docker" \
-              ["kibana-proxy"]="logging-auth-proxy-docker" \
 )
 
 target_name="${distgitrepos[$component]:=''}"
