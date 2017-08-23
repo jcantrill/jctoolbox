@@ -109,6 +109,6 @@ pushd "${WORKDIR}"
 
     #merge origin to downstream
     git checkout "${target_branch}"
-    git merge --no-ff "${merge_source}"
+    git merge --no-ff --allow-unrelated-histories "${merge_source}"
   popd
 popd
