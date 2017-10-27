@@ -1,0 +1,15 @@
+{
+  "name": "log-generator",
+  "version": "0.0.1",
+  "description": "Simple app to test log messaging",
+  "main": "log-generator.js",
+  "scripts": {
+    "start" : "log-generator.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "Apache 2.0",
+  "dependencies": {
+      "sleep":  "5.1.1"
+  }
+}
