@@ -67,6 +67,7 @@ if [ -z "${target_name}" ] ; then
 fi
 
 TARGET_REPO=${TARGET_REPO:-ssh://$KERBEROSID@pkgs.devel.redhat.com/rpms/$target_name}
+PRIVATE_BRANCH=${PRIVATE_BRANCH:-""}
 
 component_branch="${component}-${target_version}"
 component_repo="origin-${component}"
@@ -83,6 +84,7 @@ pushd "${WORKDIR}"
   pushd "${source_repo}"
     git fetch origin
     git checkout "${branch}"
+    git pull
     git submodule update --init --recursive
     git subtree split -P "${component}" -b "${component_branch}"
   popd
@@ -99,16 +101,25 @@ pushd "${WORKDIR}"
 
   #clone the target repo
   if [ ! -d "./${target_name}" ] ; then
-    git clone "${TARGET_REPO}" "${target_name}"
-    pushd "${target_name}"
-      git remote add upstream "../${source_repo}"
-    popd
+    git clone --branch "${target_branch}" "${TARGET_REPO}" "${target_name}"
   fi
+  pushd "${target_name}"
+      set +e
+      $(git remote | grep "^upstream$" -q)
+      if [ 0 -ne $? ] ; then
+        git remote add upstream "../${source_repo}"
+      fi
+      set -e
+  popd
   pushd "${target_name}"
     git fetch upstream
 
     #merge origin to downstream
-    git checkout "${target_branch}"
-    git merge --no-ff --allow-unrelated-histories "${merge_source}"
+    git fetch origin
+    git checkout -p "${target_branch}"
+    if [[ ! -z "$PRIVATE_BRANCH" ]]; then
+        git checkout -b "${PRIVATE_BRANCH}"
+   fi
+    git merge -s recursive -Xours --no-ff --allow-unrelated-histories "${merge_source}"
   popd
 popd
