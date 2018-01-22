@@ -14,22 +14,33 @@ deployment_type=origin
 openshift_deployment_type=origin
 openshift_additional_repos=[{'id': 'origin36', 'name': 'origin36', 'baseurl': 'https://buildlogs.centos.org/centos/7/paas/x86_64/openshift-origin36/', 'enabled': 1, 'gpgcheck': 0}]
 openshift_disable_check=disk_availability,memory_availability,docker_storage
-openshift_release=v3.6.0
+openshift_release=v3.7.0
 openshift_image_tag=latest
 
 docker_protect_installed_version=true
 
-#openshift_logging_master_public_url=https://vagrant.openshift.dev:8443
-#openshift_logging_master_url=https://vagrant.openshift.dev:8443
-openshift_logging_image_prefix=172.30.1.1:5000/logging/ocp-
-openshift_logging_image_version=latest
+openshift_logging_master_public_url=https://192.168.122.89.nip.io:8443
+#openshift_logging_image_prefix=172.30.1.1:5000/logging/origin-
+#openshift_logging_elasticsearch_image_prefix=172.30.1.1:5000/logging/
+#openshift_logging_elasticsearch_image_version=prom
+openshift_logging_elasticsearch_prometheus_sa=system:serviceaccount:logging:aggregated-logging-elasticsearch
+#openshift_logging_image_version=v3.7
 openshift_logging_namespace=logging
 openshift_logging_es_log_appenders=['console']
-openshift_logging_kibana_hostname=kibana.192.168.122.61.nip.io
+openshift_logging_elasticsearch_memory_limit=500M
+#openshift_logging_es_cpu_limit=500m
+openshift_logging_es_cpu_request=400m
+openshift_logging_kibana_hostname=kibana.192.168.122.89.nip.io
 
-openshift_logging_use_ops=false
-openshift_logging_es_ops_cluster_size=1
+#openshift_logging_es_number_of_shards=8
+#openshift_logging_es_number_of_replicas=9
+#openshift_logging_es_ops_number_of_shards=6
+#openshift_logging_es_ops_number_of_replicas=5
 
+openshift_logging_use_ops=true
+openshift_logging_es_ops_cpu_request=400m
+openshift_logging_es_ops_memory_limit=500M
+openshift_logging_kibana_ops_hostname=kibana-ops.192.168.122.89.nip.io
 
 [masters]
 openshiftdev.local
