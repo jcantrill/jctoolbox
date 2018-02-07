@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Template
+metadata:
+  labels:
+    app: log-generator-build-template
+  name: log-generator-build-template
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: log-generator
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: log-generator
+  spec:
+    source:
+      type: Git
+      git:
+        uri: ${SOURCE_REPOSITORY_URL}
+        ref: ${SOURCE_REPOSITORY_REF}
+      contextDir: projects/log-generator
+    strategy:
+       type: Docker
+    output:
+      to:
+        kind: ImageStreamTag
+        name: log-generator:latest
+    triggers:
+    - type: ImageChange
+    - type: ConfigChange
+parameters:
+- name: SOURCE_REPOSITORY_URL
+  value: https://github.com/jcantrill/jctoolbox
+- name: SOURCE_REPOSITORY_REF
+  value: master
