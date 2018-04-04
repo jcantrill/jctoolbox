@@ -92,7 +92,8 @@ pushd "${WORKDIR}"
     git push --set-upstream origin ${BUILD_TAG}
     git checkout "${NEW_VERSION}"
     git push --set-upstream origin "${NEW_VERSION}"
-    echo "Intiate new build from $(pwd) with: 'make respin'" 
+    git checkout ${BUILD_TAG}
+    echo "Intiate new build from $(pwd) with: 'make respin'"
   popd
 
 popd
