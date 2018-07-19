@@ -4,52 +4,58 @@ nodes
 etcd
 
 [OSEv3:vars]
+#ansible_python_interpreter=/usr/bin/python3
 ansible_become=true
 ansible_ssh_user=centos
 ansible_ssh_private_key_file=/home/jeff.cantrill/.ssh/id_rsa
 ansible_user=root
-containerized=false
+containerized=true
+openshift_is_containerized=True
 deployment_type=origin
+openshift_image_tag=v3.11
+openshift_release=v3.11
+openshift_pkg_version=-3.11.0
+openshift_node_groups=[{'name': 'logging', 'labels': ['node-role.kubernetes.io/master=true','node-role.kubernetes.io/infra=true'] }]
+
+openshift_web_console_install=False
+#openshift_logging_es_pv_selector={"logging-es":"true"}
+openshift_logging_es_pvc_size=100G
+openshift_logging_es_nodeselector={"logging-infra-fluentd":"true"}
 
 openshift_deployment_type=origin
-openshift_additional_repos=[{'id': 'origin36', 'name': 'origin36', 'baseurl': 'https://buildlogs.centos.org/centos/7/paas/x86_64/openshift-origin36/', 'enabled': 1, 'gpgcheck': 0}]
+#openshift_additional_repos=[{'id': 'origin36', 'name': 'origin36', 'baseurl': 'https://buildlogs.centos.org/centos/7/paas/x86_64/openshift-origin36/', 'enabled': 1, 'gpgcheck': 0}]
 openshift_disable_check=disk_availability,memory_availability,docker_storage
-openshift_release=v3.7.0
-openshift_image_tag=latest
 
+openshift_protect_installed_version=true
 docker_protect_installed_version=true
 
-openshift_logging_master_public_url=https://192.168.122.89.nip.io:8443
-#openshift_logging_image_prefix=172.30.1.1:5000/logging/origin-
-#openshift_logging_elasticsearch_image_prefix=172.30.1.1:5000/logging/
-#openshift_logging_elasticsearch_image_version=prom
-openshift_logging_elasticsearch_prometheus_sa=system:serviceaccount:logging:aggregated-logging-elasticsearch
-#openshift_logging_image_version=v3.7
-openshift_logging_namespace=logging
+openshift_logging_master_public_url=https://192.168.122.45.nip.io:8443
+openshift_logging_image_prefix=openshift/origin-
+openshift_logging_image_version=latest
+#openshift_logging_elasticsearch_proxy_image_prefix=/
+openshift_logging_elasticsearch_proxy_image_version=v1.1.0
+openshift_logging_elasticsearch_image_version=delete
+openshift_logging_elasticsearch_prometheus_sa=system:serviceaccount:kube-system:prometheus
 openshift_logging_es_log_appenders=['console']
-openshift_logging_elasticsearch_memory_limit=500M
-#openshift_logging_es_cpu_limit=500m
+openshift_logging_elasticsearch_memory_limit=1G
 openshift_logging_es_cpu_request=400m
-openshift_logging_kibana_hostname=kibana.192.168.122.89.nip.io
+openshift_logging_es_memory_limit=1G
+openshift_logging_kibana_hostname=kibana.192.168.122.45.nip.io
+openshift_logging_kibana_proxy_image_version=v1.1.0
 
-#openshift_logging_es_number_of_shards=8
-#openshift_logging_es_number_of_replicas=9
-#openshift_logging_es_ops_number_of_shards=6
-#openshift_logging_es_ops_number_of_replicas=5
-
-openshift_logging_use_ops=true
+#openshift_logging_use_ops=true
 openshift_logging_es_ops_cpu_request=400m
 openshift_logging_es_ops_memory_limit=500M
-openshift_logging_kibana_ops_hostname=kibana-ops.192.168.122.89.nip.io
+openshift_logging_kibana_ops_hostname=kibana-ops.192.168.122.45.nip.io
 
 [masters]
-openshiftdev.local
+openshiftdev.local openshift_node_group_name=logging
 
 [masters:vars]
-openshiftdev.local openshift_schedulable=true openshift_node_labels="{'region': 'infra','zone': 'default'}" #oadm manage-node 172.28.128.4 --schedulable=true
+openshiftdevel.local openshift_node_group_name=logging openshift_schedulable=true openshift_node_labels="{'region': 'infra','zone': 'default'}" #oadm manage-node 172.28.128.4 --schedulable=true
 
 [nodes]
-openshiftdev.local
+openshiftdevel.local openshift_node_group_name=logging
 
 [etcd]
-openshiftdev.local
+openshiftdevel.local openshift_node_group_name=logging
