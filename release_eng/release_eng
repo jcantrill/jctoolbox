@@ -2,10 +2,11 @@
 
 USER=${USER:-jcantril}
 
-docker run -e USER=$USER -it --privileged \
+docker run -e USER=$USER -e USERNAME=$USER -it --privileged \
     -v /home/jeff.cantrill/git:/opt/share/git \
     -v /home/jeff.cantrill/dist-git:/opt/share/dist-git \
     -v /home/jeff.cantrill/git.app:/opt/share/git.app \
+    -v /home/jeff.cantrill/tmp:/opt/share/tmp \
     release_eng \
     /bin/bash
 

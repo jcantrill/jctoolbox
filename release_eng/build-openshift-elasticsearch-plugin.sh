@@ -45,22 +45,22 @@ pushd "${WORKDIR}"
   popd
 
   #prep dist-git
-  if [ ! -d dist-git ] ; then
-    mkdir dist-git
-    pushd dist-git
-      git clone "${DISTGIT_REPO}"
-      popd
-  fi
-  pushd dist-git/openshift-elasticsearch-plugin
-    git checkout "${DISTGIT_PRIVATE_BRANCH}"
-    sed -i "/%changelog/a ${COMMENT}" openshift-elasticsearch-plugin.spec.tmpl
-    git add openshift-elasticsearch-plugin.spec.tmpl
-    git commit -m "openshift-elasticsearch-plugin version ${NEW_VERSION}"
-    HASH=$(git rev-parse HEAD)
-  popd
+#  if [ ! -d dist-git ] ; then
+#    mkdir dist-git
+#    pushd dist-git
+#      git clone "${DISTGIT_REPO}"
+#      popd
+#  fi
+#  pushd dist-git/openshift-elasticsearch-plugin
+#    git checkout "${DISTGIT_PRIVATE_BRANCH}"
+#    sed -i "/%changelog/a ${COMMENT}" openshift-elasticsearch-plugin.spec.tmpl
+#    git add openshift-elasticsearch-plugin.spec.tmpl
+#    git commit -m "openshift-elasticsearch-plugin version ${NEW_VERSION}"
+#    HASH=$(git rev-parse HEAD)
+#  popd
 
   pushd openshift-elasticsearch-plugin
-    sed -i "s/^scmurl = git:\/\/pkg.*$/scmurl = git:\/\/pkgs\.devel\.redhat\.com\/rpms\/openshift-elasticsearch-plugin\.git#${HASH}'/" chain/chain.ini
+#    sed -i "s/^scmurl = git:\/\/pkg.*$/scmurl = git:\/\/pkgs\.devel\.redhat\.com\/rpms\/openshift-elasticsearch-plugin\.git#${HASH}'/" chain/chain.ini
     sed -i "s/^VERSION.*$/VERSION=${NEW_VERSION}/" Makefile
     sed -i "s/^vers=.*$/vers=${NEW_VERSION}/" make-vars
     git add .
@@ -71,14 +71,14 @@ pushd "${WORKDIR}"
     echo ">> changes from upstream clone"
     echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
     git show
-  popd
-  pushd dist-git/openshift-elasticsearch-plugin
-    echo
-    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-    echo ">> changes from dist git"
-    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-    git show
-    echo 
+#  popd
+#  pushd dist-git/openshift-elasticsearch-plugin
+#    echo
+#    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+#    echo ">> changes from dist git"
+#    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+#    git show
+#    echo 
     echo "Accept changes and push repos?"
     select yn in "Yes" "No"; do
       case $yn in
@@ -86,9 +86,9 @@ pushd "${WORKDIR}"
           Yes )break;;
       esac
     done
-    git push origin
-  popd
-  pushd openshift-elasticsearch-plugin
+#    git push origin
+#  popd
+#  pushd openshift-elasticsearch-plugin
     git push --set-upstream origin ${BUILD_TAG}
     git checkout "${NEW_VERSION}"
     git push --set-upstream origin "${NEW_VERSION}"
