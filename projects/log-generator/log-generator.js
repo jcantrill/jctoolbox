@@ -8,7 +8,6 @@ if(length > SAMPLE.length){
    console.info("Punt. Only writing a message of length %d", SAMPLE.length);
    length = SAMPLE.length;
 }
-var MESSAGE = SAMPLE.toString('utf8',0,length)
 
 msg_per_sec = process.env.hasOwnProperty('MSG_PER_SEC') ? parseInt(process.env.MSG_PER_SEC) : null
 sleep_in_micro = null;
@@ -17,6 +16,8 @@ if(msg_per_sec){
 }
 
 while(true){
+  max = Math.floor(Math.random() * length) + 1
+  var MESSAGE = SAMPLE.toString('utf8',0, max)
   console.log(new Date().toISOString() + " " + MESSAGE);
   if(sleep_in_micro){
     sleep.usleep(sleep_in_micro);

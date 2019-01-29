@@ -24,7 +24,7 @@ objects:
           deploymentconfig: log-generator
       spec:
         containers:
-        - image: openshift/log-generator
+        - image: ${IMAGE}
           imagePullPolicy: Always
           name: log-generator
           env:
@@ -44,8 +44,11 @@ objects:
           namespace: openshift
       type: ImageChange
 parameters:
+- name: IMAGE
+  value: openshift/log-generator
+  required: true
 - name: MSG_SIZE
-  description: The size of the message in bytes to generate
+  description: The max size of the message in bytes to generate
   value: "1000"
   required: true
 - name: MSG_PER_SEC
