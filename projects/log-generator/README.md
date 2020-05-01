@@ -13,8 +13,8 @@ random logs.
 ## Building the image
 
 ```
-oc process -f log-generator-build.yml | oc apply -n openshift -f -
-oc -n openshift start-build log-generator
+oc process -f log-generator-build.yml | oc apply -f -
+oc start-build log-generator
 ```
 alternatively to build:
 ```
@@ -24,13 +24,14 @@ docker push 172.30.1.1:5000/openshift/log-generator:latest
 ```
 ## Deploying the Log Generator template
 ```
-oc -n openshift create -f log-generator-template.yml
+oc create -f log-generator-template.yml
 ```
 ## Deploying Application Template
 ```
-oc -n openshift create -f log-generator-template.yml
+oc create -f log-generator-template.yml
 ```
 ## Deploying Application to a Namespace
+Assuming the image is available from the `openshift` namespace
 ```
 # oc -n $NAMESPACE new-app --template=openshift/log-generator
 ```
