@@ -2,6 +2,7 @@ var fs = require('fs');
 var path = require('path');
 var sleep = require('sleep');
 var SAMPLE = fs.readFileSync(path.resolve(__dirname,'files/long.txt'));
+var format = process.env.hasOwnProperty('MSG_FORMAT') ? process.env.MSG_FORMAT : 'json'
 
 length = process.env.hasOwnProperty('MSG_SIZE') ? parseInt(process.env.MSG_SIZE) : 1000
 if(length > SAMPLE.length){
@@ -18,7 +19,12 @@ if(msg_per_sec){
 while(true){
   max = Math.floor(Math.random() * length) + 1
   var MESSAGE = SAMPLE.toString('utf8',0, max)
-  console.log(new Date().toISOString() + " " + MESSAGE);
+  if(format === 'json') {
+    console.log('{"sample": "' + MESSAGE + '", "date": "' + new Date().toISOString() + '"}')
+  } else {
+    console.log(new Date().toISOString() + " " + MESSAGE);  
+  }
+  
   if(sleep_in_micro){
     sleep.usleep(sleep_in_micro);
   }

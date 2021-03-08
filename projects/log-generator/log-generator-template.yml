@@ -32,6 +32,8 @@ objects:
             value: "${MSG_SIZE}"
           - name: MSG_PER_SEC
             value: "${MSG_PER_SEC}"
+          - name: MSG_FORMAT
+            value: "${MSG_FORMAT}"
     triggers:
     - type: ConfigChange
     - imageChangeParams:
@@ -54,4 +56,8 @@ parameters:
 - name: MSG_PER_SEC
   description: The rate of message generation
   value: "1"
+  required: true
+- name: MSG_FORMAT
+  description: Set to 'json' to log structured
+  value: "text"
   required: true
